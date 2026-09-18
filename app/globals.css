@@ -1,0 +1,94 @@
+@import 'tailwindcss';
+
+:root {
+  --bg-base:            #FAF7F2;
+  --bg-section:         #F2EDE4;
+  --bg-card:            #FFFFFF;
+  --border:             #DDD5C8;
+  --border-strong:      #C4B8A8;
+
+  --text-primary:       #1C1710;
+  --text-secondary:     #6B5E4E;
+  --text-muted:         #9A8E80;
+
+  --accent-green:       #2D5A3D;
+  --accent-green-hover: #234A31;
+  --accent-amber:       #C8863A;
+  --accent-amber-light: #E8A85A;
+
+  --font-heading: var(--font-heading, 'sans-serif');
+  --font-body:    var(--font-body, 'sans-serif');
+  --font-mono:    var(--font-mono, 'monospace');
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-green);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+.font-mono-spec {
+  font-family: var(--font-mono);
+}
+
+/* Identity motif: amber rule, used in 3 specific section openers only */
+.section-rule {
+  border-top: 1px solid var(--accent-amber);
+  padding-top: 0.5rem;
+}
+
+/* Scroll reveal animations — MOTION 1: subtle fade-up, no bounce, no scale */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+}
+
+.reveal.in-view {
+  animation: fadeInUp 0.55s ease forwards;
+  animation-delay: var(--reveal-delay, 0ms);
+}
+
+.reveal-fade {
+  opacity: 0;
+}
+
+.reveal-fade.in-view {
+  animation: fadeIn 0.6s ease forwards;
+  animation-delay: var(--reveal-delay, 0ms);
+}
+
+/* Lang toggle transition */
+.lang-toggle {
+  transition: color 0.15s ease;
+}
