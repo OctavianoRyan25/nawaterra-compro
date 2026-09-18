@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useLang } from '@/context/LanguageContext';
 import { useInView } from '@/hooks/useInView';
 
@@ -129,7 +130,7 @@ function InquiryModal({ product, onClose }: InquiryModalProps) {
 }
 
 export default function Products() {
-  const { t } = useLang();
+  const { lang, t } = useLang();
   const p = t.products;
 
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
@@ -201,17 +202,28 @@ export default function Products() {
                 <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{product.application}</p>
               </div>
 
-              <button
-                type="button"
-                className="mt-5 w-full py-2.5 text-sm font-semibold rounded border transition-colors"
-                style={{ color: 'var(--accent-green)', borderColor: 'var(--accent-green)', backgroundColor: 'transparent' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#EAF3EE'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; }}
-                onClick={() => setSelectedProduct(product)}
-                aria-label={`${p.requestQuote}: ${product.name}`}
-              >
-                {p.requestQuote}
-              </button>
+              <div className="mt-5 flex flex-col gap-2">
+                <Link
+                  href={`/products/${product.id}`}
+                  className="block w-full py-2.5 text-sm font-semibold text-center rounded text-white transition-colors"
+                  style={{ backgroundColor: 'var(--accent-green)' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = 'var(--accent-green-hover)'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = 'var(--accent-green)'; }}
+                >
+                  {lang === 'id' ? 'Lihat Detail' : 'View Details'}
+                </Link>
+                <button
+                  type="button"
+                  className="w-full py-2 text-sm font-medium rounded border transition-colors"
+                  style={{ color: 'var(--accent-green)', borderColor: 'var(--accent-green)', backgroundColor: 'transparent' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#EAF3EE'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; }}
+                  onClick={() => setSelectedProduct(product)}
+                  aria-label={`${p.requestQuote}: ${product.name}`}
+                >
+                  {p.requestQuote}
+                </button>
+              </div>
             </article>
           ))}
         </div>

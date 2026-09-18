@@ -2,14 +2,25 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLang } from '@/context/LanguageContext';
+import { useCart } from '@/context/CartContext';
 
 export default function Navbar() {
   const { lang, setLang, t } = useLang();
   const nav = t.nav;
+  const { itemCount, openCart } = useCart();
+  const [cartBump, setCartBump] = useState(false);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
+
+  // Bump animation when cart count changes
+  useEffect(() => {
+    if (itemCount === 0) return;
+    setCartBump(true);
+    const t = setTimeout(() => setCartBump(false), 400);
+    return () => clearTimeout(t);
+  }, [itemCount]);
 
   const NAV_LINKS = [
     { label: nav.capabilities, href: '#capabilities' },
@@ -95,6 +106,28 @@ export default function Navbar() {
               EN
             </button>
           </div>
+
+          {/* Cart icon */}
+          <button
+            type="button"
+            onClick={openCart}
+            className="relative p-2 rounded transition-colors hover:bg-[#F2EDE4]"
+            style={{ color: 'var(--text-primary)' }}
+            aria-label={`Buka keranjang${itemCount > 0 ? ` (${itemCount} produk)` : ''}`}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 01-8 0" />
+            </svg>
+            {itemCount > 0 && (
+              <span
+                className={`absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-white text-xs font-bold px-1 transition-transform ${cartBump ? 'scale-125' : 'scale-100'}`}
+                style={{ backgroundColor: 'var(--accent-amber)', fontFamily: 'var(--font-mono)', fontSize: '10px', transition: 'transform 0.2s ease' }}
+                aria-hidden="true"
+              >
+                {itemCount}
+              </span>
+            )}
+          </button>
 
           <a
             href="#contact"
