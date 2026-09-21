@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useLang } from '@/context/LanguageContext';
 import { useInView } from '@/hooks/useInView';
 
@@ -232,12 +233,17 @@ export default function Contact() {
       {/* Footer */}
       <footer className="border-t py-10" style={{ backgroundColor: 'var(--bg-section)', borderColor: 'var(--border)' }} role="contentinfo">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div>
-              <p className="text-lg font-bold tracking-widest mb-1" style={{ fontFamily: 'var(--font-heading)', color: 'var(--text-primary)' }}>
-                NAWATERRA
-              </p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>PT Nawaterra Indo Global</p>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
+            {/* Logo banner */}
+            <div className="flex-shrink-0">
+              <Image
+                src="/banner.jpeg"
+                alt="PT Nawaterra Indo Global — Integrated Exporter & Sourcing Partner"
+                width={220}
+                height={88}
+                className="object-contain"
+                style={{ filter: 'brightness(0.92)' }}
+              />
             </div>
             <a href="https://nawaterraindoglobal.com" className="text-sm hover:text-[#2D5A3D] transition-colors" style={{ color: 'var(--text-secondary)' }}>
               nawaterraindoglobal.com

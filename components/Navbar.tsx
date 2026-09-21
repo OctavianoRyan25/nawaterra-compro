@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { useLang } from '@/context/LanguageContext';
 import { useCart } from '@/context/CartContext';
 
@@ -61,11 +62,23 @@ export default function Navbar() {
       >
         <a
           href="#"
-          className="font-heading text-xl font-bold tracking-widest text-[#1C1710] hover:text-[#2D5A3D] transition-colors"
-          style={{ fontFamily: 'var(--font-heading)' }}
+          className="flex items-center gap-2.5 hover:opacity-85 transition-opacity"
           aria-label="PT Nawaterra Indo Global, kembali ke atas"
         >
-          NAWATERRA
+          <Image
+            src="/icon.jpeg"
+            alt="Logo PT Nawaterra Indo Global"
+            width={34}
+            height={34}
+            className="rounded-full object-cover flex-shrink-0"
+            priority
+          />
+          <span
+            className="font-heading text-lg font-bold tracking-widest text-[#1C1710]"
+            style={{ fontFamily: 'var(--font-heading)' }}
+          >
+            NAWATERRA
+          </span>
         </a>
 
         {/* Desktop nav */}

@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useLang } from '@/context/LanguageContext';
 import { useInView } from '@/hooks/useInView';
 
@@ -110,29 +111,41 @@ export default function Hero() {
           </div>
         </div>
 
-        {/* Right panel: CSS-only structural graphic */}
+        {/* Right panel: commodity image */}
         <div
           className="absolute right-0 top-1/2 -translate-y-1/2 hidden lg:block pointer-events-none"
           aria-hidden="true"
-          style={{ width: '360px', height: '480px' }}
+          style={{ width: '380px', height: '500px' }}
         >
-          {[0, 1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="absolute border rounded"
-              style={{
-                width: `${240 - i * 32}px`,
-                height: `${360 - i * 40}px`,
-                top: `${i * 20}px`,
-                right: `${i * 20}px`,
-                borderColor: i === 0 ? 'var(--accent-amber)' : i === 1 ? 'var(--accent-green)' : 'var(--border)',
-                opacity: i === 0 ? 0.6 : i === 1 ? 0.4 : 0.18,
-              }}
+          {/* Amber border frame — identity motif */}
+          <div
+            className="absolute inset-0 rounded border-2 z-10"
+            style={{ borderColor: 'var(--accent-amber)', opacity: 0.55, transform: 'translate(10px, 10px)' }}
+          />
+          {/* Green inner border */}
+          <div
+            className="absolute inset-0 rounded border z-10"
+            style={{ borderColor: 'var(--accent-green)', opacity: 0.35, transform: 'translate(-6px, -6px)' }}
+          />
+          {/* Main image */}
+          <div className="absolute inset-0 rounded overflow-hidden">
+            <Image
+              src="/hero-visual.jpg"
+              alt="Komoditas ekspor Nawaterra: palet kayu, kopi hijau, zeolite, dan cassia"
+              fill
+              className="object-cover"
+              priority
+              sizes="380px"
             />
-          ))}
+            {/* Subtle warm gradient fade on left edge to blend with bg */}
+            <div
+              className="absolute inset-y-0 left-0 w-16"
+              style={{ background: 'linear-gradient(to right, var(--bg-base), transparent)' }}
+            />
+          </div>
           <p
-            className="absolute bottom-4 right-4 text-xs tracking-widest uppercase"
-            style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}
+            className="absolute bottom-4 right-4 text-xs tracking-widest uppercase z-20"
+            style={{ color: 'rgba(255,255,255,0.75)', fontFamily: 'var(--font-mono)' }}
           >
             {h.specLabel}
           </p>
