@@ -24,10 +24,11 @@ export default function Navbar() {
   }, [itemCount]);
 
   const NAV_LINKS = [
+    { label: nav.about, href: '#about' },
     { label: nav.capabilities, href: '#capabilities' },
-    { label: nav.products,     href: '#products' },
-    { label: nav.supplyChain,  href: '#supply-chain' },
-    { label: nav.contact,      href: '#contact' },
+    { label: nav.products, href: '#products' },
+    { label: nav.supplyChain, href: '#supply-chain' },
+    { label: nav.contact, href: '#contact' },
   ];
 
   useEffect(() => {

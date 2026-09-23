@@ -26,19 +26,59 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'PT Nawaterra Indo Global | Hilirisasi Komoditas Hasil Alam',
-  description:
-    'Pengolahan dan distribusi komoditas hasil alam bernilai tambah tinggi untuk pasar B2B global dan domestik. Standar mutu ekspor, rantai pasok terdokumentasi.',
   metadataBase: new URL('https://nawaterraindoglobal.com'),
-  alternates: { canonical: '/' },
+  title: 'PT Nawaterra Indo Global | Supplier Komoditas & Hilirisasi Hasil Alam',
+  description:
+    'Supplier komoditas Indonesia untuk kebutuhan B2B domestik dan ekspor. Palet kayu, agrikultur, dan mineral olahan dengan standar mutu yang siap dipakai pasar industri.',
+  keywords: [
+    'PT Nawaterra Indo Global',
+    'supplier komoditas Indonesia',
+    'komoditas ekspor Indonesia',
+    'palet kayu ekspor',
+    'agrikultur Indonesia',
+    'mineral olahan',
+    'supplier B2B komoditas',
+    'hiliirisasi hasil alam Indonesia',
+  ],
+  applicationName: 'PT Nawaterra Indo Global',
+  authors: [{ name: 'PT Nawaterra Indo Global' }],
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  alternates: {
+    canonical: '/',
+    languages: {
+      id: 'https://nawaterraindoglobal.com',
+      en: 'https://nawaterraindoglobal.com',
+    },
+  },
   openGraph: {
-    title: 'PT Nawaterra Indo Global',
+    title: 'PT Nawaterra Indo Global | Supplier Komoditas Indonesia',
     description:
-      'Pengolahan komoditas hasil alam untuk pasar B2B global. Wood pallet, agrikultur, dan mineral olahan berstandar ekspor.',
+      'Komoditas hasil alam Indonesia untuk pasar B2B domestik dan internasional, termasuk palet kayu, produk agrikultur, dan mineral olahan.',
     url: 'https://nawaterraindoglobal.com',
     siteName: 'PT Nawaterra Indo Global',
     locale: 'id_ID',
     type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'PT Nawaterra Indo Global',
+    description:
+      'Supplier komoditas Indonesia untuk kebutuhan B2B domestik dan ekspor.',
+  },
+  other: {
+    'theme-color': '#2D5A3D',
+  },
+  icons: {
+    icon: '/icon.jpeg',
   },
 };
 
