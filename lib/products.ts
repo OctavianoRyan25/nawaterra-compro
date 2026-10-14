@@ -6,7 +6,16 @@ export interface ProductSpec {
   value: string;
 }
 
+export interface ProductImage {
+  id: string;
+  productId: string;
+  url: string;
+  isThumbnail: boolean;
+  sortOrder: number;
+}
+
 export interface Product {
+  sku?: string;
   id: string;
   name: { id: string; en: string };
   category: CategoryKey;
@@ -15,6 +24,7 @@ export interface Product {
   description: { id: string; en: string };
   pricing: {
     indicativeUSD: number;
+    sellPriceIDR?: number;
     unit: string;
     moqAmount: number;
     moqUnit: string;
@@ -26,6 +36,8 @@ export interface Product {
   leadTimeDays: { min: number; max: number };
   availableDocs: DocumentType[];
   tags: string[];
+  thumbnail?: ProductImage | null;
+  images?: ProductImage[];
 }
 
 /* ─── MOCK DATA ─────────────────────────────────────────────────────────────
@@ -361,10 +373,63 @@ export const PRODUCTS: Product[] = [
   },
 ];
 
+const DYNAMIC_PRODUCTS_CACHE = new Map<string, Product>();
+
+export function registerProductToCache(product: Product): void {
+  DYNAMIC_PRODUCTS_CACHE.set(product.id, product);
+}
+
 export function getProductById(id: string): Product | undefined {
-  return PRODUCTS.find((p) => p.id === id);
+  return DYNAMIC_PRODUCTS_CACHE.get(id) || PRODUCTS.find((p) => p.id === id);
 }
 
 export function getProductsByCategory(category: CategoryKey): Product[] {
   return PRODUCTS.filter((p) => p.category === category);
+}
+
+export async function getProductsAsync(options?: {
+  category?: string;
+  search?: string;
+}): Promise<Product[]> {
+  try {
+    const { fetchPublicProducts } = await import('./api');
+    const { products } = await fetchPublicProducts(options);
+    if (products.length > 0) {
+      products.forEach((p) => DYNAMIC_PRODUCTS_CACHE.set(p.id, p));
+      return products;
+    }
+  } catch (err) {
+    console.warn('[getProductsAsync] Falling back to mock data:', err);
+  }
+
+  // Fallback to local mock data
+  let list = PRODUCTS;
+  if (options?.category && options.category !== 'all') {
+    list = list.filter((p) => p.category === options.category);
+  }
+  if (options?.search) {
+    const q = options.search.toLowerCase();
+    list = list.filter(
+      (p) =>
+        p.name.id.toLowerCase().includes(q) ||
+        p.name.en.toLowerCase().includes(q) ||
+        p.grade.toLowerCase().includes(q) ||
+        p.tags.some((t) => t.toLowerCase().includes(q))
+    );
+  }
+  return list;
+}
+
+export async function getProductByIdAsync(id: string): Promise<Product | undefined> {
+  try {
+    const { fetchPublicProductById } = await import('./api');
+    const apiProduct = await fetchPublicProductById(id);
+    if (apiProduct) {
+      DYNAMIC_PRODUCTS_CACHE.set(apiProduct.id, apiProduct);
+      return apiProduct;
+    }
+  } catch (err) {
+    console.warn('[getProductByIdAsync] Failed to fetch product ' + id + ':', err);
+  }
+  return getProductById(id);
 }

@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { getProductById, Product } from '@/lib/products';
+import { getProductById, getProductByIdAsync, Product } from '@/lib/products';
+import { getUSDToIDRRate } from '@/lib/exchangeRate';
 import { useLang } from '@/context/LanguageContext';
 import { useCart } from '@/context/CartContext';
 import Navbar from '@/components/Navbar';
@@ -21,14 +22,81 @@ export default function ProductDetailPage() {
   const { addItem } = useCart();
 
   const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [exchangeRate, setExchangeRate] = useState<number>(17885);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const [activeTab, setActiveTab] = useState<'specs' | 'applications' | 'docs'>('specs');
 
+  // Fetch live exchange rate
   useEffect(() => {
-    const found = getProductById(id);
-    setProduct(found ?? null);
+    getUSDToIDRRate().then((rate) => {
+      if (rate && rate > 0) setExchangeRate(rate);
+    });
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    // 1. Check synchronous cache / mock first for instant feedback
+    const cached = getProductById(id);
+    if (cached) {
+      setProduct(cached);
+      setLoading(false);
+    }
+
+    // 2. Fetch latest from API (handles database UUIDs as well)
+    getProductByIdAsync(id)
+      .then((found) => {
+        if (active) {
+          if (found) {
+            setProduct(found);
+          }
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load product by id:', err);
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [id]);
+
+  useEffect(() => {
+    if (product?.thumbnail?.url) {
+      setSelectedImage(product.thumbnail.url);
+    } else if (product?.images && product.images.length > 0) {
+      setSelectedImage(product.images[0].url);
+    } else {
+      setSelectedImage(null);
+    }
+  }, [product]);
+
+  if (loading && !product) {
+    return (
+      <>
+        <Navbar />
+        <main className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-base)' }}>
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 rounded-full border-2 border-emerald-600 border-t-transparent animate-spin" />
+            <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+              {lang === 'id' ? 'Memuat detail produk...' : 'Loading product details...'}
+            </p>
+          </div>
+        </main>
+      </>
+    );
+  }
 
   if (!product) {
     return (
@@ -48,18 +116,36 @@ export default function ProductDetailPage() {
     );
   }
 
-  const name = lang === 'id' ? product.name.id : product.name.en;
-  const shortDesc = lang === 'id' ? product.shortDescription.id : product.shortDescription.en;
-  const description = lang === 'id' ? product.description.id : product.description.en;
-  const swatch = CATEGORY_COLORS[product.category];
-  const trueQty = product.pricing.moqAmount * qty;
-  const lineTotal = product.pricing.indicativeUSD * trueQty;
-  const priceNote = lang === 'id' ? product.pricing.note.id : product.pricing.note.en;
+  const name = typeof product.name === 'string' ? product.name : (lang === 'id' ? product.name.id : product.name.en);
+  const shortDesc = typeof product.shortDescription === 'string' ? product.shortDescription : (lang === 'id' ? product.shortDescription?.id : product.shortDescription?.en) || '';
+  const description = typeof product.description === 'string' ? product.description : (lang === 'id' ? product.description?.id : product.description?.en) || '';
+  const swatch = CATEGORY_COLORS[product.category] || CATEGORY_COLORS['Kayu & Palet'];
+
+  // Currency calculation: Rupiah from API converted to USD via live rate
+  const rawIDR = product.pricing?.sellPriceIDR;
+  const indicativePrice =
+    rawIDR && rawIDR > 0
+      ? Number((rawIDR / exchangeRate).toFixed(2))
+      : product.pricing?.indicativeUSD ?? 0;
+
+  const moqAmount = product.pricing?.moqAmount ?? 1;
+  const moqUnit = product.pricing?.moqUnit ?? 'unit';
+  const priceUnit = product.pricing?.unit ?? 'unit';
+  const trueQty = moqAmount * qty;
+  const lineTotal = Number((indicativePrice * trueQty).toFixed(2));
+  const priceNote = product.pricing?.note
+    ? (typeof product.pricing.note === 'string' ? product.pricing.note : (lang === 'id' ? product.pricing.note.id : product.pricing.note.en))
+    : '';
+  const specs = product.specs ?? [];
+  const applications = product.applications ?? [];
+  const packagingOptions = product.packagingOptions ?? [];
+  const availableDocs = product.availableDocs ?? [];
+  const leadTimeDays = product.leadTimeDays ?? { min: 7, max: 14 };
 
   const copy = {
     id: {
       back: '← Semua Produk',
-      indicativePrice: 'Harga Indikatif',
+      indicativePrice: 'Harga Indikatif (USD)',
       per: 'per',
       moq: 'Min. Order',
       qty: 'Jumlah (satuan MOQ)',
@@ -73,12 +159,13 @@ export default function ProductDetailPage() {
       packagingOptions: 'Opsi Kemasan',
       leadTime: 'Lead Time',
       businessDays: 'hari kerja',
-      estimatedTotal: 'Estimasi Subtotal',
-      priceDisclaimer: 'Harga indikatif',
+      estimatedTotal: 'Estimasi Nilai Order',
+      liveRateNotice: `Kurs real-time: 1 USD ≈ Rp ${Math.round(exchangeRate).toLocaleString('id-ID')}`,
+      disclaimer: 'Harga dikonversi secara real-time dari mata uang IDR ke USD berdasarkan kurs pasar terkini. Penawaran final diterbitkan oleh tim sales.',
     },
     en: {
       back: '← All Products',
-      indicativePrice: 'Indicative Price',
+      indicativePrice: 'Indicative Price (USD)',
       per: 'per',
       moq: 'Min. Order',
       qty: 'Quantity (MOQ units)',
@@ -86,14 +173,15 @@ export default function ProductDetailPage() {
       added: 'Added!',
       requestQuote: 'Request Manual Quote',
       tabSpecs: 'Technical Specifications',
-      tabApp: 'Industry Applications',
+      tabApp: 'Industrial Applications',
       tabDocs: 'Documents & Packaging',
       availableDocs: 'Available Documents',
       packagingOptions: 'Packaging Options',
       leadTime: 'Lead Time',
       businessDays: 'business days',
-      estimatedTotal: 'Estimated Subtotal',
-      priceDisclaimer: 'Indicative price',
+      estimatedTotal: 'Estimated Order Value',
+      liveRateNotice: `Real-time Rate: 1 USD ≈ Rp ${Math.round(exchangeRate).toLocaleString('id-ID')}`,
+      disclaimer: 'Prices converted in real-time from IDR to USD using current market exchange rates. Final quotes issued by sales team.',
     },
   }[lang];
 
@@ -125,43 +213,100 @@ export default function ProductDetailPage() {
         <section className="max-w-7xl mx-auto px-6 lg:px-8 py-12 lg:py-16">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-start">
 
-            {/* Left: Image placeholder */}
+            {/* Left: Image / Gallery */}
             <div className="sticky top-24">
-              <div
-                className="w-full aspect-square rounded border flex flex-col items-center justify-center gap-4 relative overflow-hidden"
-                style={{ backgroundColor: swatch.bg, borderColor: 'var(--border)' }}
-                aria-hidden="true"
-              >
-                {/* Decorative grid */}
-                <div
-                  className="absolute inset-0 opacity-30"
-                  style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,0,0,0.05) 39px, rgba(0,0,0,0.05) 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,0,0,0.05) 39px, rgba(0,0,0,0.05) 40px)' }}
-                />
-                <span className="text-8xl font-bold" style={{ color: swatch.text, fontFamily: 'var(--font-mono)', opacity: 0.15 }}>
-                  {swatch.label}
-                </span>
-                <p className="text-base font-bold text-center px-8 z-10" style={{ color: swatch.text, fontFamily: 'var(--font-heading)' }}>
-                  {name}
-                </p>
-                <span
-                  className="text-xs font-semibold px-3 py-1 rounded-full z-10"
-                  style={{ backgroundColor: swatch.text, color: 'white', fontFamily: 'var(--font-mono)' }}
-                >
-                  {product.grade}
-                </span>
-                <p className="absolute bottom-4 right-4 text-xs tracking-widest" style={{ color: swatch.text, opacity: 0.4, fontFamily: 'var(--font-mono)' }}>
-                  {product.category.toUpperCase()}
-                </p>
-              </div>
+              {selectedImage ? (
+                <div className="flex flex-col gap-3">
+                  <div
+                    className="w-full aspect-square rounded border flex items-center justify-center relative overflow-hidden bg-white shadow-sm"
+                    style={{ borderColor: 'var(--border)' }}
+                  >
+                    <img
+                      src={selectedImage}
+                      alt={name}
+                      className="w-full h-full object-contain p-4"
+                    />
+                    <span
+                      className="absolute top-3 right-3 text-xs font-semibold px-2.5 py-1 rounded shadow-sm text-white"
+                      style={{ backgroundColor: swatch.text, fontFamily: 'var(--font-mono)' }}
+                    >
+                      {product.grade}
+                    </span>
+                  </div>
 
-              {/* Available docs below image on desktop */}
-              <div className="mt-4 hidden lg:flex flex-wrap gap-2">
-                {product.availableDocs.map((doc) => (
-                  <span key={doc} className="text-xs px-2.5 py-1 rounded border font-medium" style={{ color: 'var(--text-secondary)', borderColor: 'var(--border)', fontFamily: 'var(--font-mono)' }}>
-                    {doc}
-                  </span>
-                ))}
-              </div>
+                  {/* Multiple images thumbnail selector */}
+                  {product.images && product.images.length > 1 && (
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {product.images.map((img) => (
+                        <button
+                          key={img.id}
+                          type="button"
+                          onClick={() => setSelectedImage(img.url)}
+                          className={`w-16 h-16 rounded border overflow-hidden flex-shrink-0 transition-all ${
+                            selectedImage === img.url
+                              ? 'ring-2 ring-emerald-600 border-emerald-600 scale-105'
+                              : 'opacity-70 hover:opacity-100'
+                          }`}
+                          style={{ borderColor: 'var(--border)', backgroundColor: '#f9fbf9' }}
+                        >
+                          <img src={img.url} alt="" className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Available docs below image on desktop */}
+                  <div className="mt-2 hidden lg:flex flex-wrap gap-2">
+                    {availableDocs.map((doc) => (
+                      <span
+                        key={doc}
+                        className="text-xs px-2.5 py-1 rounded border font-medium"
+                        style={{ color: 'var(--text-secondary)', borderColor: 'var(--border)', fontFamily: 'var(--font-mono)' }}
+                      >
+                        {doc}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div
+                    className="w-full aspect-square rounded border flex flex-col items-center justify-center gap-4 relative overflow-hidden"
+                    style={{ backgroundColor: swatch.bg, borderColor: 'var(--border)' }}
+                    aria-hidden="true"
+                  >
+                    {/* Decorative grid */}
+                    <div
+                      className="absolute inset-0 opacity-30"
+                      style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,0,0,0.05) 39px, rgba(0,0,0,0.05) 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,0,0,0.05) 39px, rgba(0,0,0,0.05) 40px)' }}
+                    />
+                    <span className="text-8xl font-bold" style={{ color: swatch.text, fontFamily: 'var(--font-mono)', opacity: 0.15 }}>
+                      {swatch.label}
+                    </span>
+                    <p className="text-base font-bold text-center px-8 z-10" style={{ color: swatch.text, fontFamily: 'var(--font-heading)' }}>
+                      {name}
+                    </p>
+                    <span
+                      className="text-xs font-semibold px-3 py-1 rounded-full z-10"
+                      style={{ backgroundColor: swatch.text, color: 'white', fontFamily: 'var(--font-mono)' }}
+                    >
+                      {product.grade}
+                    </span>
+                    <p className="absolute bottom-4 right-4 text-xs tracking-widest" style={{ color: swatch.text, opacity: 0.4, fontFamily: 'var(--font-mono)' }}>
+                      {product.category.toUpperCase()}
+                    </p>
+                  </div>
+
+                  {/* Available docs below image on desktop */}
+                  <div className="mt-4 hidden lg:flex flex-wrap gap-2">
+                    {availableDocs.map((doc) => (
+                      <span key={doc} className="text-xs px-2.5 py-1 rounded border font-medium" style={{ color: 'var(--text-secondary)', borderColor: 'var(--border)', fontFamily: 'var(--font-mono)' }}>
+                        {doc}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Right: product info */}
@@ -183,23 +328,39 @@ export default function ProductDetailPage() {
 
               {/* Pricing box */}
               <div className="rounded border p-5" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
-                <p className="text-xs font-semibold tracking-widest uppercase mb-3" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-heading)' }}>
-                  {copy.indicativePrice}
-                </p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-heading)' }}>
+                    {copy.indicativePrice}
+                  </p>
+                  {rawIDR && rawIDR > 0 && (
+                    <span className="text-xs font-medium px-2 py-0.5 rounded border" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-base)', color: 'var(--text-secondary)' }}>
+                      Rp {rawIDR.toLocaleString('id-ID')}
+                    </span>
+                  )}
+                </div>
+
                 <div className="flex items-baseline gap-2 mb-2">
                   <span className="text-3xl font-bold" style={{ fontFamily: 'var(--font-heading)', color: 'var(--text-primary)' }}>
-                    ${product.pricing.indicativeUSD.toLocaleString()}
+                    ${indicativePrice < 1 && indicativePrice > 0 ? indicativePrice.toFixed(2) : indicativePrice.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                   </span>
                   <span className="text-base" style={{ color: 'var(--text-muted)' }}>
-                    / {product.pricing.unit}
+                    / {priceUnit}
                   </span>
                 </div>
-                <div className="flex items-center gap-4 text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-                  <span><span className="font-semibold">{copy.moq}:</span> {product.pricing.moqAmount} {product.pricing.moqUnit}</span>
+
+                <div className="flex items-center gap-4 text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+                  <span><span className="font-semibold">{copy.moq}:</span> {moqAmount} {moqUnit}</span>
                   <span>·</span>
-                  <span><span className="font-semibold">{copy.leadTime}:</span> {product.leadTimeDays.min}–{product.leadTimeDays.max} {copy.businessDays}</span>
+                  <span><span className="font-semibold">{copy.leadTime}:</span> {leadTimeDays.min}–{leadTimeDays.max} {copy.businessDays}</span>
                 </div>
-                <p className="text-xs mb-5" style={{ color: 'var(--text-muted)' }}>{priceNote}</p>
+
+                {/* Exchange rate badge */}
+                <div className="mb-4 inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs" style={{ backgroundColor: '#EAF3EE', color: 'var(--accent-green)', fontFamily: 'var(--font-mono)' }}>
+                  <span>💱</span>
+                  <span>{copy.liveRateNotice}</span>
+                </div>
+
+                {priceNote && <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>{priceNote}</p>}
 
                 {/* Qty selector */}
                 <label className="block text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-secondary)' }}>
@@ -226,14 +387,14 @@ export default function ProductDetailPage() {
                     +
                   </button>
                   <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                    = {trueQty} {product.pricing.moqUnit}
+                    = {trueQty} {moqUnit}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between mb-5 py-3 border-t border-b" style={{ borderColor: 'var(--border)' }}>
                   <span className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>{copy.estimatedTotal}</span>
                   <span className="text-xl font-bold" style={{ fontFamily: 'var(--font-heading)', color: 'var(--text-primary)' }}>
-                    ${lineTotal.toLocaleString()}
+                    ${lineTotal < 1 && lineTotal > 0 ? lineTotal.toFixed(2) : lineTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                   </span>
                 </div>
 
@@ -260,99 +421,105 @@ export default function ProductDetailPage() {
           </div>
         </section>
 
-        {/* Tabs: Specs / Applications / Docs */}
-        <section className="border-t" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-section)' }}>
-          <div className="max-w-7xl mx-auto px-6 lg:px-8">
-            {/* Tab buttons */}
-            <div className="flex gap-0 border-b" style={{ borderColor: 'var(--border)' }} role="tablist">
-              {([
-                { key: 'specs' as const, label: copy.tabSpecs },
-                { key: 'applications' as const, label: copy.tabApp },
-                { key: 'docs' as const, label: copy.tabDocs },
-              ]).map(({ key, label }) => (
-                <button
-                  key={key}
-                  role="tab"
-                  aria-selected={activeTab === key}
-                  onClick={() => setActiveTab(key)}
-                  className="px-5 py-4 text-sm font-semibold border-b-2 transition-colors -mb-px"
-                  style={{
-                    borderColor: activeTab === key ? 'var(--accent-green)' : 'transparent',
-                    color: activeTab === key ? 'var(--accent-green)' : 'var(--text-muted)',
-                  }}
-                >
-                  {label}
-                </button>
+        {/* Detail tabs */}
+        <section className="max-w-7xl mx-auto px-6 lg:px-8 pb-24">
+          <div className="border-b mb-8" style={{ borderColor: 'var(--border)' }}>
+            <div className="flex gap-8" role="tablist">
+              {(['specs', 'applications', 'docs'] as const).map((tab) => {
+                const label = {
+                  specs: copy.tabSpecs,
+                  applications: copy.tabApp,
+                  docs: copy.tabDocs,
+                }[tab];
+                return (
+                  <button
+                    key={tab}
+                    role="tab"
+                    aria-selected={activeTab === tab}
+                    onClick={() => setActiveTab(tab)}
+                    className="pb-4 text-sm font-semibold transition-colors relative"
+                    style={{
+                      color: activeTab === tab ? 'var(--accent-green)' : 'var(--text-muted)',
+                      borderBottom: activeTab === tab ? '2px solid var(--accent-green)' : '2px solid transparent',
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Tab: Specs */}
+          {activeTab === 'specs' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {specs.map((spec, i) => (
+                <div key={i} className="p-4 rounded border flex justify-between items-center" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{spec.key}</span>
+                  <span className="text-sm font-bold text-right" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{spec.value}</span>
+                </div>
               ))}
-            </div>
-
-            {/* Tab content */}
-            <div className="py-10">
-              {activeTab === 'specs' && (
-                <div role="tabpanel" className="grid grid-cols-1 md:grid-cols-2 gap-2 max-w-3xl">
-                  {product.specs.map((spec) => (
-                    <div key={spec.key} className="flex justify-between gap-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
-                      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{spec.key}</span>
-                      <span className="text-sm font-semibold text-right" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{spec.value}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {activeTab === 'applications' && (
-                <ul role="tabpanel" className="flex flex-col gap-3 max-w-2xl">
-                  {product.applications.map((app, i) => (
-                    <li key={i} className="flex items-start gap-3">
-                      <div className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0" style={{ backgroundColor: 'var(--accent-amber)' }} aria-hidden="true" />
-                      <span className="text-base" style={{ color: 'var(--text-secondary)' }}>
-                        {lang === 'id' ? app.id : app.en}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {activeTab === 'docs' && (
-                <div role="tabpanel" className="flex flex-col gap-8 max-w-2xl">
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-widest mb-4" style={{ color: 'var(--text-muted)' }}>{copy.availableDocs}</p>
-                    <div className="flex flex-wrap gap-3">
-                      {product.availableDocs.map((doc) => (
-                        <span key={doc} className="px-4 py-2 rounded border text-sm font-medium" style={{ color: 'var(--text-secondary)', borderColor: 'var(--border)', backgroundColor: 'var(--bg-card)', fontFamily: 'var(--font-mono)' }}>
-                          {doc}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-widest mb-4" style={{ color: 'var(--text-muted)' }}>{copy.packagingOptions}</p>
-                    <ul className="flex flex-col gap-2">
-                      {product.packagingOptions.map((opt, i) => (
-                        <li key={i} className="flex items-start gap-3">
-                          <div className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0" style={{ backgroundColor: 'var(--border-strong)' }} aria-hidden="true" />
-                          <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{opt}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>{copy.leadTime}</p>
-                    <p className="text-base font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                      {product.leadTimeDays.min}–{product.leadTimeDays.max} {copy.businessDays}
-                    </p>
-                  </div>
-                </div>
+              {specs.length === 0 && (
+                <p className="text-sm text-gray-500">{lang === 'id' ? 'Belum ada spesifikasi teknis.' : 'No technical specifications available.'}</p>
               )}
             </div>
-          </div>
+          )}
+
+          {/* Tab: Applications */}
+          {activeTab === 'applications' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {applications.map((app, i) => {
+                const text = typeof app === 'string' ? app : (lang === 'id' ? app.id : app.en);
+                return (
+                  <div key={i} className="p-4 rounded border flex items-center gap-3" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--accent-green)' }} />
+                    <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{text}</span>
+                  </div>
+                );
+              })}
+              {applications.length === 0 && (
+                <p className="text-sm text-gray-500">{lang === 'id' ? 'Belum ada aplikasi industri.' : 'No industrial applications listed.'}</p>
+              )}
+            </div>
+          )}
+
+          {/* Tab: Docs & Packaging */}
+          {activeTab === 'docs' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-secondary)' }}>
+                  {copy.availableDocs}
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {availableDocs.map((doc) => (
+                    <span key={doc} className="px-3 py-1.5 rounded border text-sm font-medium" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}>
+                      📄 {doc}
+                    </span>
+                  ))}
+                  {availableDocs.length === 0 && (
+                    <p className="text-sm text-gray-500">{lang === 'id' ? 'Tidak ada dokumen yang dicantumkan.' : 'No documents listed.'}</p>
+                  )}
+                </div>
+              </div>
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-secondary)' }}>
+                  {copy.packagingOptions}
+                </h3>
+                <div className="flex flex-col gap-2">
+                  {packagingOptions.map((opt, i) => (
+                    <div key={i} className="p-3 rounded border text-sm" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}>
+                      📦 {opt}
+                    </div>
+                  ))}
+                  {packagingOptions.length === 0 && (
+                    <p className="text-sm text-gray-500">{lang === 'id' ? 'Tidak ada opsi kemasan yang dicantumkan.' : 'No packaging options listed.'}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
-        {/* Description */}
-        <section className="py-12 border-t" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-base)' }}>
-          <div className="max-w-3xl mx-auto px-6 lg:px-8">
-            <p className="text-base leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{description}</p>
-          </div>
-        </section>
       </main>
     </>
   );
