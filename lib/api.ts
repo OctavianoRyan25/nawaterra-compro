@@ -2,7 +2,7 @@ import { Product, ProductImage, DocumentType, CategoryKey } from './products';
 import { getUSDToIDRRate } from './exchangeRate';
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:8080';
+  process.env.API_URL?.replace(/\/$/, '') || 'http://crm.nawaterraindoglobal.com';
 
 export interface BackendProductResponse {
   id: string;
