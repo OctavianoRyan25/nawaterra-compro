@@ -1,8 +1,18 @@
 import { Product, ProductImage, DocumentType, CategoryKey } from './products';
 import { getUSDToIDRRate } from './exchangeRate';
 
-const API_BASE_URL =
-  process.env.API_URL?.replace(/\/$/, '') || 'http://crm.nawaterraindoglobal.com';
+function getApiBaseUrl(): string {
+  let url =
+    process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ||
+    process.env.API_URL?.replace(/\/$/, '') ||
+    'http://crm.nawaterraindoglobal.com';
+
+  // If the web page is opened via HTTPS, upgrade to HTTPS to avoid Mixed Content / CORS blockage
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://crm.')) {
+    url = url.replace('http://', 'https://');
+  }
+  return url;
+}
 
 export interface BackendProductResponse {
   id: string;
@@ -135,7 +145,7 @@ export async function fetchPublicProducts(options?: {
         if (options?.limit) params.set('limit', String(options.limit));
 
         const qs = params.toString();
-        const url = `${API_BASE_URL}/public/v1/products${qs ? `?${qs}` : ''}`;
+        const url = `${getApiBaseUrl()}/public/v1/products${qs ? `?${qs}` : ''}`;
         return fetch(url, {
           method: 'GET',
           headers: { Accept: 'application/json' },
@@ -171,7 +181,7 @@ export async function fetchPublicProductById(id: string): Promise<Product | null
     const [rate, res] = await Promise.all([
       getUSDToIDRRate(),
       (async () => {
-        const url = `${API_BASE_URL}/public/v1/products/${encodeURIComponent(id)}`;
+        const url = `${getApiBaseUrl()}/public/v1/products/${encodeURIComponent(id)}`;
         return fetch(url, {
           method: 'GET',
           headers: { Accept: 'application/json' },
@@ -200,7 +210,7 @@ export async function fetchPublicProductById(id: string): Promise<Product | null
  */
 export async function fetchPublicCategories(): Promise<CategoryKey[]> {
   try {
-    const url = `${API_BASE_URL}/public/v1/products/categories`;
+    const url = `${getApiBaseUrl()}/public/v1/products/categories`;
     const res = await fetch(url, {
       method: 'GET',
       headers: { Accept: 'application/json' },
